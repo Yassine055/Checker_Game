@@ -240,12 +240,24 @@ def dessiner_plateau():
     
     if partie_terminee:
         texte = font_titre.render(f"PARTIE TERMINÉE - {gagnant.upper()} GAGNE!", True, COULEUR_TITRE)
+        x_centre = (LARGEUR - texte.get_width()) // 2
+        screen.blit(texte, (x_centre, 5))
     else:
-        pieces_noir, pieces_blanc = compter_pieces()
-        texte = font_titre.render(f"Tour: {joueur_actuel.upper()} | Noir: {pieces_noir} | Blanc: {pieces_blanc}", True, COULEUR_TITRE)
-    
-    x_centre = (LARGEUR - texte.get_width()) // 2
-    screen.blit(texte, (x_centre, 5))
+            pieces_noir, pieces_blanc = compter_pieces()
+            texte_tour = font_titre.render(f"Tour: {joueur_actuel.upper()} | Noir: {pieces_noir} | Blanc: {pieces_blanc}", True, COULEUR_TITRE)
+            x_centre_tour = (LARGEUR - texte_tour.get_width()) // 2
+            screen.blit(texte_tour, (x_centre_tour, 2))
+
+            # Vérifie si le Koul est applicable
+            couleur_adverse = 'blanc' if joueur_actuel == 'noir' else 'noir'
+            prises_possibles = prises_possibles_pour_joueur(couleur_adverse)
+
+            if prises_possibles:
+                texte_koul = font_titre.render("Appuie sur 'K' pour demander une prise obligatoire (Koul)", True, (100, 100, 100))
+                x_centre_koul = (LARGEUR - texte_koul.get_width()) // 2
+                screen.blit(texte_koul, (x_centre_koul, 16))
+
+
 
     s_vert = pygame.Surface((TAILLE_CASE, TAILLE_CASE), pygame.SRCALPHA)
     s_vert.fill(VERT)
