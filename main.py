@@ -3,13 +3,7 @@ import sys
 
 pygame.init()
                             #reste le Koul
-# Constantes
-TAILLE_CASE = 60
-LARGEUR = TAILLE_CASE * 10
-HAUTEUR_TITRE = 30
-HAUTEUR = TAILLE_CASE * 10 + HAUTEUR_TITRE
-screen = pygame.display.set_mode((LARGEUR, HAUTEUR))
-pygame.display.set_caption("Dames Marocaines")
+
 
 # Couleurs
 BLANC = (255, 255, 255)
