@@ -373,6 +373,23 @@ def main():
                         pion_selectionne = None
                         deplacements_valides = []
 
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_k and not partie_terminee:
+                    # Règle du Koul : l'adversaire doit capturer s'il le peut
+                    couleur_adverse = 'blanc' if joueur_actuel == 'noir' else 'noir'
+                    prises_possibles = prises_possibles_pour_joueur(couleur_adverse)
+
+                    if prises_possibles:
+                        # Effectuer une capture forcée pour l'adversaire (la première trouvée)
+                        l, c = prises_possibles[0]
+                        deplacements = mouvements_possibles(l, c)
+                        for dest in deplacements:
+                            if est_prise((l, c), dest):
+                                effectuer_deplacement((l, c), dest, prises_possibles)
+                                break
+                    else:
+                        print("Aucune prise possible pour l'adversaire.")
+
         screen.fill(BLANC)
         dessiner_plateau()
         
@@ -380,6 +397,7 @@ def main():
             dessiner_ecran_fin()
         
         pygame.display.flip()
+
 
 if __name__ == "__main__":
     main()
