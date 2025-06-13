@@ -269,13 +269,23 @@ def dessiner_plateau():
     pygame.draw.rect(screen, FOND_TITRE, (0, 0, LARGEUR, HAUTEUR_TITRE))
     
     if partie_terminee:
-        texte = font_titre.render(f"PARTIE TERMINÉE - {gagnant.upper()} GAGNE!", True, COULEUR_TITRE)
+            texte = font_titre.render(f"PARTIE TERMINÉE - {gagnant.upper()} GAGNE!", True, COULEUR_TITRE)
+            x_centre = (LARGEUR - texte.get_width()) // 2
+            screen.blit(texte, (x_centre, 5))
     else:
         pieces_noir, pieces_blanc = compter_pieces()
-        texte = font_titre.render(f"Tour: {joueur_actuel.upper()} | Noir: {pieces_noir} | Blanc: {pieces_blanc}", True, COULEUR_TITRE)
-    
-    x_centre = (LARGEUR - texte.get_width()) // 2
-    screen.blit(texte, (x_centre, 5))
+        texte_tour = font_titre.render(f"Tour: {joueur_actuel.upper()} | Noir: {pieces_noir} | Blanc: {pieces_blanc}", True, COULEUR_TITRE)
+        x_centre_tour = (LARGEUR - texte_tour.get_width()) // 2
+        screen.blit(texte_tour, (x_centre_tour, 2))
+
+        couleur_adverse = 'blanc' if joueur_actuel == 'noir' else 'noir'
+        prises_adverses = prises_possibles_pour_joueur(couleur_adverse)
+
+        if prises_adverses:
+            texte_koul = font_titre.render("Appuie sur 'K' pour forcer une prise (Koul)", True, (80, 80, 80))
+            x_centre_koul = (LARGEUR - texte_koul.get_width()) // 2
+            screen.blit(texte_koul, (x_centre_koul, 16))
+
 
     s_vert = pygame.Surface((TAILLE_CASE, TAILLE_CASE), pygame.SRCALPHA)
     s_vert.fill(VERT)
@@ -366,12 +376,10 @@ def main():
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if partie_terminee:
-                    # Gestion des clics sur l'écran de fin
                     x, y = pygame.mouse.get_pos()
                     bouton_rejouer, bouton_quitter = dessiner_ecran_fin()
                     
                     if bouton_rejouer.collidepoint(x, y):
-                        # Recommencer la partie
                         joueur_actuel = 'noir'
                         pion_selectionne = None
                         deplacements_valides = []
@@ -380,7 +388,6 @@ def main():
                         pygame.quit()
                         sys.exit()
                 else:
-                    # Jeu normal
                     x, y = pygame.mouse.get_pos()
                     if y < HAUTEUR_TITRE:
                         continue
@@ -402,6 +409,22 @@ def main():
                     else:
                         pion_selectionne = None
                         deplacements_valides = []
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_k and not partie_terminee:
+                    couleur_adverse = 'blanc' if joueur_actuel == 'noir' else 'noir'
+                    prises_possibles = prises_possibles_pour_joueur(couleur_adverse)
+
+                    if prises_possibles:
+                        l, c = prises_possibles[0]
+                        deplacements = mouvements_possibles(l, c)
+                        for dest in deplacements:
+                            if est_prise((l, c), dest):
+                                effectuer_deplacement((l, c), dest, prises_possibles)
+                                break
+                    else:
+                        print("Aucune prise possible pour l'adversaire.")
+                
 
         screen.fill(BLANC)
         dessiner_plateau()
