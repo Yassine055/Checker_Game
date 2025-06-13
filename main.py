@@ -146,11 +146,27 @@ def mouvements_possibles(ligne, colonne):
                 # Le sultan peut aller sur n'importe quelle case libre
                 if plateau[l2][c2] is None:
                     deplacements.append((l2, c2))
-                # S'il y a un pion adverse, il peut le capturer
+                # S'il y a un pion adverse, il peut s'arrêter après l'avoir capturé
                 elif pion_adverse(pion, plateau[l2][c2]):
-                    deplacements.append((l2, c2))
-                
-                # Les sultans ne sont jamais bloqués, ils continuent leur chemin
+                    # Vérifier s'il peut aller plus loin après cette capture
+                    for distance_apres in range(distance + 1, 10):
+                        l3 = ligne + dl * distance_apres
+                        c3 = colonne + dc * distance_apres
+                        
+                        if not (0 <= l3 < 10 and 0 <= c3 < 10):
+                            break
+                        if not case_est_noire(l3, c3):
+                            break
+                            
+                        # Il peut s'arrêter sur n'importe quelle case après la capture
+                        if plateau[l3][c3] is None:
+                            deplacements.append((l3, c3))
+                        elif pion_adverse(pion, plateau[l3][c3]):
+                            # Il peut capturer plusieurs pions en continuant
+                            continue
+                        # S'il y a un pion allié, il peut quand même continuer
+                # S'il y a un pion allié, il peut quand même continuer
+                # Les sultans ne sont jamais bloqués !
     else:
         # Pions normaux : seulement en avant, sauf pour les prises
         if couleur == 'blanc':
@@ -202,7 +218,21 @@ def effectuer_deplacement(depart, arrivee, prises_avant):
     # Si déplacement est une prise, enlever la ou les pièces capturées
     if est_prise(depart, arrivee):
         if est_dame:
-            # Pour les sultans, ils peuvent capturer directement le pion sur la case d'arrivée
+            # Pour les sultans, capturer tous les pions adverses sur le chemin
+            dl = 1 if l2 > l1 else -1
+            dc = 1 if c2 > c1 else -1
+            
+            # Parcourir tout le chemin de départ à arrivée
+            l_actuelle = l1 + dl
+            c_actuelle = c1 + dc
+            
+            while l_actuelle != l2 or c_actuelle != c2:
+                if plateau[l_actuelle][c_actuelle] is not None and pion_adverse(pion, plateau[l_actuelle][c_actuelle]):
+                    plateau[l_actuelle][c_actuelle] = None  # Capturer le pion adverse
+                l_actuelle += dl
+                c_actuelle += dc
+            
+            # Capturer aussi le pion sur la case d'arrivée s'il y en a un
             if plateau[l2][c2] is not None and pion_adverse(pion, plateau[l2][c2]):
                 plateau[l2][c2] = None
         else:
@@ -240,24 +270,12 @@ def dessiner_plateau():
     
     if partie_terminee:
         texte = font_titre.render(f"PARTIE TERMINÉE - {gagnant.upper()} GAGNE!", True, COULEUR_TITRE)
-        x_centre = (LARGEUR - texte.get_width()) // 2
-        screen.blit(texte, (x_centre, 5))
     else:
-            pieces_noir, pieces_blanc = compter_pieces()
-            texte_tour = font_titre.render(f"Tour: {joueur_actuel.upper()} | Noir: {pieces_noir} | Blanc: {pieces_blanc}", True, COULEUR_TITRE)
-            x_centre_tour = (LARGEUR - texte_tour.get_width()) // 2
-            screen.blit(texte_tour, (x_centre_tour, 2))
-
-            # Vérifie si le Koul est applicable
-            couleur_adverse = 'blanc' if joueur_actuel == 'noir' else 'noir'
-            prises_possibles = prises_possibles_pour_joueur(couleur_adverse)
-
-            if prises_possibles:
-                texte_koul = font_titre.render("Appuie sur 'K' pour demander une prise obligatoire (Koul)", True, (100, 100, 100))
-                x_centre_koul = (LARGEUR - texte_koul.get_width()) // 2
-                screen.blit(texte_koul, (x_centre_koul, 16))
-
-
+        pieces_noir, pieces_blanc = compter_pieces()
+        texte = font_titre.render(f"Tour: {joueur_actuel.upper()} | Noir: {pieces_noir} | Blanc: {pieces_blanc}", True, COULEUR_TITRE)
+    
+    x_centre = (LARGEUR - texte.get_width()) // 2
+    screen.blit(texte, (x_centre, 5))
 
     s_vert = pygame.Surface((TAILLE_CASE, TAILLE_CASE), pygame.SRCALPHA)
     s_vert.fill(VERT)
@@ -385,23 +403,6 @@ def main():
                         pion_selectionne = None
                         deplacements_valides = []
 
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_k and not partie_terminee:
-                    # Règle du Koul : l'adversaire doit capturer s'il le peut
-                    couleur_adverse = 'blanc' if joueur_actuel == 'noir' else 'noir'
-                    prises_possibles = prises_possibles_pour_joueur(couleur_adverse)
-
-                    if prises_possibles:
-                        # Effectuer une capture forcée pour l'adversaire (la première trouvée)
-                        l, c = prises_possibles[0]
-                        deplacements = mouvements_possibles(l, c)
-                        for dest in deplacements:
-                            if est_prise((l, c), dest):
-                                effectuer_deplacement((l, c), dest, prises_possibles)
-                                break
-                    else:
-                        print("Aucune prise possible pour l'adversaire.")
-
         screen.fill(BLANC)
         dessiner_plateau()
         
@@ -409,7 +410,6 @@ def main():
             dessiner_ecran_fin()
         
         pygame.display.flip()
-
 
 if __name__ == "__main__":
     main()
