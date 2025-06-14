@@ -1,8 +1,14 @@
 import pygame
 import sys
-
+import random
+from ia import minmax
+from logique import mouvements_possibles, pion_adverse
 pygame.init()
                             #reste le Koul
+ia_active = False
+niveau_ia = 1  # 1 = facile, 2 = moyen, 3 = difficile
+menu_actif = True
+
 # Constantes
 TAILLE_CASE = 60
 LARGEUR = TAILLE_CASE * 10
@@ -73,7 +79,7 @@ def joueur_peut_jouer(couleur):
         for colonne in range(10):
             pion = plateau[ligne][colonne]
             if pion is not None and couleur in pion:
-                if mouvements_possibles(ligne, colonne):
+                if mouvements_possibles(plateau, ligne, colonne):
                     return True
     return False
 
@@ -116,96 +122,26 @@ def pion_adverse(pion, autre_pion):
     autre_couleur = autre_pion.replace('_dame', '')
     return couleur != autre_couleur
 
-def mouvements_possibles(ligne, colonne):
-    deplacements = []
-    pion = plateau[ligne][colonne]
-    if pion is None:
-        return deplacements
-    
-    est_dame = '_dame' in pion
-    couleur = pion.replace('_dame', '')
-
-    if est_dame:
-        # Les sultans (dames) se déplacent en diagonale sans être bloqués par d'autres pièces
-        directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
-        
-        for dl, dc in directions:
-            # Mouvement complètement libre - les sultans traversent tout
-            for distance in range(1, 10):
-                l2 = ligne + dl * distance
-                c2 = colonne + dc * distance
-                
-                # Vérifier si on est encore dans le plateau
-                if not (0 <= l2 < 10 and 0 <= c2 < 10):
-                    break
-                    
-                # Vérifier si c'est une case noire
-                if not case_est_noire(l2, c2):
-                    break
-                
-                # Le sultan peut aller sur n'importe quelle case libre
-                if plateau[l2][c2] is None:
-                    deplacements.append((l2, c2))
-                # S'il y a un pion adverse, il peut s'arrêter après l'avoir capturé
-                elif pion_adverse(pion, plateau[l2][c2]):
-                    # Vérifier s'il peut aller plus loin après cette capture
-                    for distance_apres in range(distance + 1, 10):
-                        l3 = ligne + dl * distance_apres
-                        c3 = colonne + dc * distance_apres
-                        
-                        if not (0 <= l3 < 10 and 0 <= c3 < 10):
-                            break
-                        if not case_est_noire(l3, c3):
-                            break
-                            
-                        # Il peut s'arrêter sur n'importe quelle case après la capture
-                        if plateau[l3][c3] is None:
-                            deplacements.append((l3, c3))
-                        elif pion_adverse(pion, plateau[l3][c3]):
-                            # Il peut capturer plusieurs pions en continuant
-                            continue
-                        # S'il y a un pion allié, il peut quand même continuer
-                # S'il y a un pion allié, il peut quand même continuer
-                # Les sultans ne sont jamais bloqués !
-    else:
-        # Pions normaux : seulement en avant, sauf pour les prises
-        if couleur == 'blanc':
-            directions_avancer = [(-1, -1), (-1, 1)]
-            directions_prises = [(-1, -1), (-1, 1), (1, -1), (1, 1)]  # Toutes directions pour prises
-        else:
-            directions_avancer = [(1, -1), (1, 1)]
-            directions_prises = [(-1, -1), (-1, 1), (1, -1), (1, 1)]  # Toutes directions pour prises
-
-        # Mouvements normaux (seulement en avant)
-        for dl, dc in directions_avancer:
-            l2 = ligne + dl
-            c2 = colonne + dc
-            if 0 <= l2 < 10 and 0 <= c2 < 10 and plateau[l2][c2] is None and case_est_noire(l2, c2):
-                deplacements.append((l2, c2))
-
-        # Prises (dans toutes les directions)
-        for dl, dc in directions_prises:
-            l2 = ligne + dl
-            c2 = colonne + dc
-            l3 = ligne + 2*dl
-            c3 = colonne + 2*dc
-            
-            if (0 <= l3 < 10 and 0 <= c3 < 10 and plateau[l3][c3] is None and case_est_noire(l3, c3)):
-                if plateau[l2][c2] is not None and pion_adverse(pion, plateau[l2][c2]):
-                    deplacements.append((l3, c3))
-
-    return deplacements
-
 def prises_possibles_pour_joueur(couleur):
     prises = []
     for l in range(10):
         for c in range(10):
             pion = plateau[l][c]
             if pion is not None and couleur in pion:
-                for deplacement in mouvements_possibles(l, c):
+                for deplacement in mouvements_possibles(plateau, l, c):
                     if est_prise((l, c), deplacement):
                         prises.append((l, c))
     return prises
+
+def ia_jouer():
+    from ia import minmax
+
+    meilleur_coup = minmax(plateau, niveau_ia, True)[1]
+    if meilleur_coup:
+        dep, arr = meilleur_coup
+        effectuer_deplacement(dep, arr, prises_possibles_pour_joueur("blanc"))
+    else:
+        print("IA ne trouve aucun coup.")
 
 def effectuer_deplacement(depart, arrivee, prises_avant):
     global joueur_actuel, pion_selectionne, deplacements_valides
@@ -264,6 +200,10 @@ def effectuer_deplacement(depart, arrivee, prises_avant):
     
     # Vérifier si la partie est terminée
     verifier_fin_partie()
+    # Juste après le déplacement du joueur
+    if ia_active and joueur_actuel == "blanc" and not partie_terminee:
+        ia_jouer()
+
 
 def dessiner_plateau():
     pygame.draw.rect(screen, FOND_TITRE, (0, 0, LARGEUR, HAUTEUR_TITRE))
@@ -364,11 +304,49 @@ def dessiner_ecran_fin():
     
     return bouton_rejouer, bouton_quitter
 
+def dessiner_menu():
+    screen.fill((230, 230, 230))  # fond gris foncé
+
+    titre = font_fin.render("Choisissez le niveau de l'IA", True, (0, 0, 0))
+    screen.blit(titre, ((LARGEUR - titre.get_width()) // 2, 60))
+
+    boutons = []
+    niveaux = [("Facile", 1), ("Moyen", 2), ("Difficile", 3)]
+
+    for i, (texte, niveau) in enumerate(niveaux):
+        rect = pygame.Rect(220, 150 + i * 100, 150, 60)
+        pygame.draw.rect(screen, MARRON, rect, border_radius=15)
+
+        font_menu = pygame.font.SysFont('Trebuchet MS', 25, bold=True)
+        label = font_menu.render(texte, True, (230, 230, 230))
+        screen.blit(label, (rect.x + 38, rect.y + 16))
+        boutons.append((rect, niveau))
+
+    pygame.display.flip()
+    return boutons
+
+
 def main():
-    global pion_selectionne, deplacements_valides, joueur_actuel
+    global pion_selectionne, deplacements_valides, joueur_actuel, menu_actif, ia_active, niveau_ia
     initialiser_plateau()
 
     while True:
+        if menu_actif:
+            boutons_menu = dessiner_menu()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    x, y = pygame.mouse.get_pos()
+                    for rect, niveau in boutons_menu:
+                        if rect.collidepoint(x, y):
+                            niveau_ia = niveau
+                            ia_active = True
+                            menu_actif = False
+                            initialiser_plateau()
+            continue  # ne pas exécuter le reste tant que le menu est affiché
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -378,7 +356,6 @@ def main():
                 if partie_terminee:
                     x, y = pygame.mouse.get_pos()
                     bouton_rejouer, bouton_quitter = dessiner_ecran_fin()
-                    
                     if bouton_rejouer.collidepoint(x, y):
                         joueur_actuel = 'noir'
                         pion_selectionne = None
@@ -391,7 +368,6 @@ def main():
                     x, y = pygame.mouse.get_pos()
                     if y < HAUTEUR_TITRE:
                         continue
-
                     ligne = (y - HAUTEUR_TITRE) // TAILLE_CASE
                     colonne = x // TAILLE_CASE
 
@@ -405,7 +381,7 @@ def main():
                         effectuer_deplacement(pion_selectionne, (ligne, colonne), prises_avant)
                     elif plateau[ligne][colonne] is not None and joueur_actuel in plateau[ligne][colonne]:
                         pion_selectionne = (ligne, colonne)
-                        deplacements_valides = mouvements_possibles(ligne, colonne)
+                        deplacements_valides = mouvements_possibles(plateau, ligne, colonne)
                     else:
                         pion_selectionne = None
                         deplacements_valides = []
@@ -414,7 +390,6 @@ def main():
                 if event.key == pygame.K_k and not partie_terminee:
                     couleur_adverse = 'blanc' if joueur_actuel == 'noir' else 'noir'
                     prises_possibles = prises_possibles_pour_joueur(couleur_adverse)
-
                     if prises_possibles:
                         l, c = prises_possibles[0]
                         deplacements = mouvements_possibles(l, c)
@@ -424,15 +399,19 @@ def main():
                                 break
                     else:
                         print("Aucune prise possible pour l'adversaire.")
-                
+
+        # 👇 Si IA active et c’est à elle de jouer
+        if ia_active and joueur_actuel == "blanc" and not partie_terminee:
+            ia_jouer()
 
         screen.fill(BLANC)
         dessiner_plateau()
-        
+
         if partie_terminee:
             dessiner_ecran_fin()
-        
+
         pygame.display.flip()
+
 
 if __name__ == "__main__":
     main()
