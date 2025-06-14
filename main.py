@@ -1,6 +1,10 @@
 import pygame
 import sys
 import random
+import tkinter as tk
+from tkinter import simpledialog
+from database import enregistrer_score  # Ton fichier database.py doit exister
+
 from ia import minmax
 from logique import mouvements_possibles, pion_adverse
 pygame.init()
@@ -282,6 +286,7 @@ def dessiner_ecran_fin():
     texte_score = font_menu.render(f"Score final - Noir: {pieces_noir} | Blanc: {pieces_blanc}", True, BLANC)
     rect_score = texte_score.get_rect(center=(LARGEUR//2, HAUTEUR//2 - 50))
     screen.blit(texte_score, rect_score)
+
     
     # Boutons
     bouton_rejouer = pygame.Rect(LARGEUR//2 - 100, HAUTEUR//2 + 20, 200, 50)
@@ -327,6 +332,7 @@ def dessiner_menu():
 
 
 def main():
+    bouton_rejouer, bouton_quitter = None, None
     global pion_selectionne, deplacements_valides, joueur_actuel, menu_actif, ia_active, niveau_ia
     initialiser_plateau()
 
@@ -392,7 +398,7 @@ def main():
                     prises_possibles = prises_possibles_pour_joueur(couleur_adverse)
                     if prises_possibles:
                         l, c = prises_possibles[0]
-                        deplacements = mouvements_possibles(l, c)
+                        deplacements = mouvements_possibles(plateau, l, c)
                         for dest in deplacements:
                             if est_prise((l, c), dest):
                                 effectuer_deplacement((l, c), dest, prises_possibles)
@@ -409,6 +415,21 @@ def main():
 
         if partie_terminee:
             dessiner_ecran_fin()
+
+            if not hasattr(main, "score_enregistre"):
+                try:
+                    pieces_noir, pieces_blanc = compter_pieces()
+                    root = tk.Tk()
+                    root.withdraw()
+                    nom = simpledialog.askstring("Nom", "Entrez votre nom :")
+                    if nom:
+                        enregistrer_score(nom, pieces_noir, pieces_blanc, gagnant, niveau_ia)
+                    root.destroy()
+                except Exception as e:
+                    print("Erreur lors de l'enregistrement :", e)
+                main.score_enregistre = True
+
+
 
         pygame.display.flip()
 
